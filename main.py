@@ -65,4 +65,5 @@ model.compile(
 )
 
 model.fit(train_gen, validation_data=val_gen, epochs=5)
-model.save("model/f1_model.h5")
+#model.save("model/f1_model.h5")
+#testowa zmiana
