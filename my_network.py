@@ -9,6 +9,7 @@ from main import model_acc_plt, model_loss_plt, conf_matrix
 import json
 import numpy as np
 
+
 DATA_DIR = "Formula One Cars"
 IMAGE_SIZE = (224, 224)
 BATCH_SIZE = 32
@@ -72,7 +73,7 @@ model.compile(optimizer='adam',
 			metrics=['accuracy']) 
 model.summary()
 
-history = model.fit(train_gen, validation_data=val_gen, epochs=10)
+history = model.fit(train_gen, validation_data=val_gen, epochs=5)
 model.save("model/my_f1_model.h5")
 
 history_dict = model.history.history
@@ -81,7 +82,7 @@ json.dump(history_dict, open('model/my_model_history_dict.json', 'w'))
 y_pred_probs = model.predict(val_gen_pred)
 y_pred = y_pred = np.argmax(y_pred_probs, axis=1)
 y_true = val_gen_pred.class_names
-class_labels = list(val_gen_pred.class_indices.keys())
+class_labels = list(val_gen_pred.class_names)
 
 model_acc_plt(history_dict)
 model_loss_plt(history_dict)
