@@ -7,7 +7,7 @@ import numpy as np
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.applications import MobileNetV2, ResNet101
 from tensorflow.keras import layers, Model, Input
 from tensorflow.keras.models import load_model
 from PIL import Image
@@ -48,13 +48,52 @@ def model_loss_plt(history_dict):
     plt.show()
 
 def conf_matrix(y_true, y_pred, class_labels_show):
-    cm=confusion_matrix(y_true,y_pred)
-    plt.figure(figsize=(14,10))
-    sns.heatmap(cm,annot=True,cmap='Blues',fmt='.0f')
-    plt.ylabel("True values",size=15)
-    plt.xlabel('Predicted values',size=15)
-    plt.xticks(ticks=np.arange(len(class_labels_show))+0.5,labels=class_labels_show,rotation=60)
-    plt.yticks(ticks=np.arange(len(class_labels_show))+0.5,labels=class_labels_show,rotation=0)
+    cm = confusion_matrix(y_true, y_pred)
+    plt.figure(figsize=(14, 10))
+    sns.heatmap(cm, annot=True, cmap='Blues', fmt='d', 
+                xticklabels=class_labels_show, 
+                yticklabels=class_labels_show)
+    plt.ylabel("True Labels", fontsize=14)
+    plt.xlabel("Predicted Labels", fontsize=14)
+    plt.title("Confusion Matrix", fontsize=16)
+    plt.xticks(rotation=45)
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    plt.show()
+
+def predict_image(image_path, model, class_labels):
+    from tensorflow.keras.preprocessing import image
+    
+    # 1. Wczytanie i przeskalowanie
+    img = image.load_img(image_path, target_size=(224, 224))
+    
+    # 2. Konwersja do tablicy NumPy
+    img_array = image.img_to_array(img)
+    
+    # 3. Normalizacja (tak jak w treningu)
+    img_array = img_array / 255.0
+    
+    # 4. Dodanie wymiaru batcha
+    img_batch = np.expand_dims(img_array, axis=0)
+    
+    # 5. Przewidywanie
+    predictions = model.predict(img_batch)
+    predicted_index = np.argmax(predictions)
+    predicted_label = class_labels[predicted_index]
+    confidence = predictions[0][predicted_index]
+    
+    # 6. Wynik
+    #print(f"Predicted: {predicted_label} ({confidence * 100:.2f}%)")
+    return predicted_label, confidence
+
+
+def show_prediction(image_path, model, class_labels):
+    label, confidence = predict_image(image_path, model, class_labels)
+    
+    img = Image.open(image_path)
+    plt.imshow(img)
+    plt.title(f"{label} ({confidence*100:.1f}%)")
+    plt.axis('off')
     plt.show()
 
 DATA_DIR = "Formula One Cars"
@@ -92,7 +131,7 @@ val_gen_pred = datagen.flow_from_directory(
 
 inputs = layers.Input(shape=(224, 224, 3), name='input_layer')
 
-base_model = MobileNetV2(include_top=False)
+base_model = ResNet101(include_top=False, classes=len(class_names))
 base_model.trainable = False
 
 x = base_model(inputs, training=False)
@@ -101,47 +140,78 @@ num_classes=len(class_names)
 outputs=layers.Dense(num_classes,activation='softmax',dtype=tf.float32)(x)
 
 model = Model(inputs, outputs)
+print("TEST123123")
+# model.compile(
+#     optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
+#     loss='categorical_crossentropy',
+#     metrics=['accuracy']
+# )
 
-#model.compile(
-    #optimizer='adam',
-    #loss='categorical_crossentropy',
-    #metrics=['accuracy']
-#)
-
-#model.fit(train_gen, validation_data=val_gen, epochs=10)
-#model.save("model/f1_model.h5")
-
+# model.fit(train_gen, validation_data=val_gen, epochs=5)
+# model.save("model/f1_model_ResNet101.h5")
+# print("model saved")
 #fine-tuning
+print("=======FINE TUNING=======")
 base_model.trainable = True
-#model.compile(
-    #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
-    #loss='categorical_crossentropy',
-    #metrics=['accuracy']
-#)
-#model.fit(train_gen, validation_data=val_gen, epochs=10)
-#model.save("model/f1_model_fine_tuned.h5")
+# model.compile(
+#     optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
+#     loss='categorical_crossentropy',
+#     metrics=['accuracy']
+# )
+# model.fit(train_gen, validation_data=val_gen, epochs=10)
+# model.save("model/f1_model_ResNet101_fine_tuned.h5")
 
-#save data for later
-#history_dict=model.history.history
-#json.dump(history_dict, open('model/history_dict.json', 'w'))
+# #save data for later
+# history_dict=model.history.history
+# json.dump(history_dict, open('model/history_dict.json', 'w'))
 
-trained_model = load_model("model/f1_model.h5")
-trained_model.summary()
+#trained_model = load_model("model/f1_model_MobileNetV2.h5")
+#trained_model.summary()
 
-#loss and metrics
-#results = trained_model.evaluate(val_gen)
+# #loss and metrics
+# #results = trained_model.evaluate(val_gen)
 
 with open("model/history_dict.json", "r") as f:
     history_dict_json = json.load(f)
 
-y_pred_probs = trained_model.predict(val_gen_pred)
-y_pred = np.argmax(y_pred_probs, axis=1)
+# y_pred_probs = trained_model.predict(val_gen_pred)
+# y_pred = np.argmax(y_pred_probs, axis=1)
 
-y_true = val_gen_pred.classes
-class_labels = list(val_gen_pred.class_indices.keys())
+# y_true = val_gen_pred.classes
+# class_labels = list(val_gen_pred.class_indices.keys())
 
 
-#basic plots    
+# #basic plots    
 model_acc_plt(history_dict_json)
 model_loss_plt(history_dict_json)
-conf_matrix(y_true, y_pred, class_labels)
+# conf_matrix(y_true, y_pred, class_labels)
+
+#img_path = "D:\\BIAI\\Formula One Cars\\Renault F1 car\\00000098.jpg"
+#show_prediction(img_path, trained_model, class_labels)
+
+# if __name__ == "__main__":
+#     import argparse
+
+#     parser = argparse.ArgumentParser(description="Rozpoznawanie obrazu F1 z wybranym modelem")
+#     parser.add_argument("--model_path", type=str, required=True, help="Ścieżka do pliku .h5 z modelem")
+#     parser.add_argument("--image_path", type=str, required=True, help="Ścieżka do obrazu do predykcji")
+
+#     args = parser.parse_args()
+
+#     # Wczytaj model
+#     trained_model = load_model(args.model_path)
+#     print("Model załadowany:", args.model_path)
+#     trained_model.summary()
+
+#     # Przygotuj klasy na podstawie generatora
+#     dummy_gen = datagen.flow_from_directory(
+#         DATA_DIR,
+#         target_size=IMAGE_SIZE,
+#         batch_size=BATCH_SIZE,
+#         class_mode='categorical',
+#         subset='validation'
+#     )
+#     class_labels = list(dummy_gen.class_indices.keys())
+
+#     # Pokaż predykcję
+#     show_prediction(args.image_path, trained_model, class_labels)
